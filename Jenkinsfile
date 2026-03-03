@@ -86,7 +86,7 @@ pipeline {
                 docker stop $STAGING_CONTAINER || true
                 docker rm $STAGING_CONTAINER || true
 
-                docker run -d -p $STAGING_PORT:8000 \
+                docker run -d -p $STAGING_PORT:80 \
                 --name $STAGING_CONTAINER $FULL_IMAGE
                 '''
             }
@@ -104,7 +104,7 @@ pipeline {
                 docker stop $PROD_CONTAINER || true
                 docker rm $PROD_CONTAINER || true
 
-                docker run -d -p $PROD_PORT:8000 \
+                docker run -d -p $PROD_PORT:80 \
                 --name $PROD_CONTAINER $FULL_IMAGE
                 '''
             }

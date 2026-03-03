@@ -2,8 +2,6 @@ pipeline {
     agent any
     
     environment {
-        // Docker Hub credentials (configure in Jenkins)
-        DOCKER_HUB_CREDENTIALS = credentials('docker-hub-creds')
         DOCKER_IMAGE_NAME = 'suhar121/course-tracker'
         DOCKER_TAG = "${BUILD_NUMBER}"
         NODE_VERSION = '18'
@@ -131,14 +129,21 @@ pipeline {
             steps {
                 echo 'Pushing Docker image to registry...'
                 script {
-                    docker.withRegistry('https://index.docker.io/v1/', 'docker-hub-creds') {
-                        def image = docker.image("${DOCKER_IMAGE_NAME}:${DOCKER_TAG}")
-                        image.push()
-                        image.push("git-${env.GIT_COMMIT_SHORT}")
-                        
-                        if (env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'master') {
-                            image.push('latest')
+                    try {
+                        // Try to push to Docker Hub if credentials exist
+                        docker.withRegistry('https://index.docker.io/v1/', 'docker-hub-creds') {
+                            def image = docker.image("${DOCKER_IMAGE_NAME}:${DOCKER_TAG}")
+                            image.push()
+                            image.push("git-${env.GIT_COMMIT_SHORT}")
+                            
+                            if (env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'master') {
+                                image.push('latest')
+                            }
                         }
+                    } catch (Exception e) {
+                        echo "⚠️ Failed to push to Docker registry: ${e.getMessage()}"
+                        echo "Image ${DOCKER_IMAGE_NAME}:${DOCKER_TAG} is available locally"
+                        echo "To fix: Configure 'docker-hub-creds' in Jenkins credentials"
                     }
                 }
             }
@@ -228,11 +233,19 @@ pipeline {
         always {
             echo 'Pipeline execution completed.'
             
-            // Clean up Docker images to save space
-            sh '''
-                docker image prune -f
-                docker system prune -f
-            '''
+            // Clean up Docker images to save space  
+            node {
+                script {
+                    try {
+                        sh '''
+                            docker image prune -f
+                            docker system prune -f
+                        '''
+                    } catch (Exception e) {
+                        echo "Docker cleanup failed: ${e.getMessage()}"
+                    }
+                }
+            }
         }
         
         success {
